@@ -21,6 +21,7 @@ create a finished circuit board.
 * [Going Deeper](#going-deeper)
 * [Going Really Deep](#going-really-deep)
 * [Converting Existing Designs to SKiDL](#converting-existing-designs-to-skidl)
+* [SPICE Simulations](#spice-simulations)
 
 
 
@@ -58,15 +59,18 @@ takes an input voltage, divides it by three, and outputs it:
 ```py
 from skidl import *
 
-gnd = Net('GND')  # Ground reference.
-vin = Net('VI')   # Input voltage to the divider.
-vout = Net('VO')  # Output voltage from the divider.
-r1, r2 = 2 * Part('device', 'R', TEMPLATE)  # Create two resistors.
-r1.value, r1.footprint = '1K',  'Resistors_SMD:R_0805'  # Set resistor values
-r2.value, r2.footprint = '500', 'Resistors_SMD:R_0805'  # and footprints.
-r1[1] += vin      # Connect the input to the first resistor.
-r2[2] += gnd      # Connect the second resistor to ground.
-vout += r1[2], r2[1]  # Output comes from the connection of the two resistors.
+# Create input & output voltages and ground reference.
+vin, vout, gnd = Net('VI'), Net('VO'), Net('GND')
+
+# Create two resistors.
+r1, r2 = 2 * Part('device', 'R', TEMPLATE, footprint='Resistor_SMD.pretty:R_0805_2012Metric')
+r1.value = '1K'   # Set upper resistor value.
+r2.value = '500'  # Set lower resistor value.
+
+# Connect the nets and resistors.
+vin += r1[1]      # Connect the input to the upper resistor.
+gnd += r2[2]      # Connect the lower resistor to ground.
+vout += r1[2], r2[1] # Output comes from the connection of the two resistors.
 
 generate_netlist()
 ```
@@ -75,35 +79,37 @@ And this is the netlist output that can be fed to a program like KiCad's `PCBNEW
 create the physical PCB:
 
 ```text
-(export (version D)
-  (design
-    (source "C:\TEMP\skidl tests\intro_example.py")
-    (date "04/19/2017 04:09 PM")
-    (tool "SKiDL (0.0.12)"))
-  (components
-    (comp (ref R1)
-      (value 1K)
-      (footprint Resistors_SMD:R_0805)
-      (fields
-        (field (name keywords) "r res resistor")
-        (field (name description) Resistor))
-      (libsource (lib device) (part R)))
-    (comp (ref R2)
-      (value 500)
-      (footprint Resistors_SMD:R_0805)
-      (fields
-        (field (name keywords) "r res resistor")
-        (field (name description) Resistor))
-      (libsource (lib device) (part R))))
-  (nets
-    (net (code 0) (name GND)
-      (node (ref R2) (pin 2)))
-    (net (code 1) (name VI)
-      (node (ref R1) (pin 1)))
-    (net (code 2) (name VO)
-      (node (ref R1) (pin 2))
-      (node (ref R2) (pin 1))))
-))
+(export (version D)                                                                                    
+  (design                                                                                              
+    (source "C:\xesscorp\KiCad\tools\skidl\tests\vdiv.py")                                             
+    (date "09/14/2018 08:49 PM")                                                                       
+    (tool "SKiDL (0.0.23)"))                                                                           
+  (components                                                                                          
+    (comp (ref R1)                                                                                     
+      (value 1K)                                                                                       
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)                                                                 
+      (fields                                                                                          
+        (field (name description) Resistor)                                                            
+        (field (name keywords) "r res resistor"))                                                      
+      (libsource (lib device) (part R))                                                                
+      (sheetpath (names /top/12995167876889795071) (tstamps /top/12995167876889795071)))               
+    (comp (ref R2)                                                                                     
+      (value 500)                                                                                      
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)                                                                 
+      (fields                                                                                          
+        (field (name description) Resistor)                                                            
+        (field (name keywords) "r res resistor"))                                                      
+      (libsource (lib device) (part R))                                                                
+      (sheetpath (names /top/8869138953290924483) (tstamps /top/8869138953290924483))))                
+  (nets                                                                                                
+    (net (code 0) (name GND)                                                                           
+      (node (ref R2) (pin 2)))                                                                         
+    (net (code 1) (name VI)                                                                            
+      (node (ref R1) (pin 1)))                                                                         
+    (net (code 2) (name VO)                                                                            
+      (node (ref R1) (pin 2))                                                                          
+      (node (ref R2) (pin 1))))                                                                        
+)                                                                                                      
 ```
 
 
@@ -116,16 +122,23 @@ SKiDL is pure Python so it's easy to install:
 $ pip install skidl
 ```
 
-or:
+To give SKiDL some part libraries to work with,
+you'll also need to install [KiCad](http://kicad-pcb.org/).
+Then, you'll need to set an environment variable so SKiDL can find the libraries.
+For Windows, do this:
 
-```bash
-$ easy_install skidl
+```
+set KICAD_SYMBOL_DIR=C:\Program Files\KiCad\share\kicad\kicad-symbols
 ```
 
-In order for SKiDL to access part libraries,
-you'll also need to install [KiCad](http://kicad-pcb.org/).
+And for linux-type OSes, define the environment variable in your `.bashrc` like so:
 
+```
+export KICAD_SYMBOL_DIR="/Library/Application Support/kicad/kicad-symbols"
+```
 
+**These paths are OS-dependent**, so launch KiCAD and click `Preferences->Configure Paths`
+to reveal the needed paths.
 
 # Basic Usage
 
@@ -311,8 +324,8 @@ First, start by creating two resistors (note that I've also added the
 `footprint` attribute that describes the physical package for the resistors):
 
 ```py
->>> rup = Part('device', 'R', value='1K', footprint='Resistors_SMD:R_0805')                            
->>> rlow = Part('device', 'R', value='500', footprint='Resistors_SMD:R_0805')                          
+>>> rup = Part('device', 'R', value='1K', footprint='Resistor_SMD.pretty:R_0805_2012Metric')                            
+>>> rlow = Part('device', 'R', value='500', footprint='Resistor_SMD.pretty:R_0805_2012Metric')                          
 >>> rup.ref, rlow.ref                                                
 ('R1', 'R2')                                                         
 >>> rup.value, rlow.value                                            
@@ -437,10 +450,10 @@ then the netlist will be stored in `my_circuit.net`.
   (components
     (comp (ref R1)
       (value 1K)
-      (footprint Resistors_SMD:R_0805))
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric))
     (comp (ref R2)
       (value 500)
-      (footprint Resistors_SMD:R_0805)))
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)))
   (nets
     (net (code 0) (name "VIN")
       (node (ref R1) (pin 1)))
@@ -458,14 +471,14 @@ then the netlist will be stored in `my_circuit.net`.
   (components
     (comp (ref R1)
       (value 1K)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R2)
       (value 500)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
@@ -568,8 +581,8 @@ but you can override it:
 my_part.ref = 'U5'
 ```
 
-The `value` and `footprint` attributes are also required for generating
-a netlist. But you can also add any other attribute:
+In addition, the `value` and `footprint` attributes are required for generating
+a netlist. You can also add any other attribute:
 
 ```py
 my_part.manf = 'Atmel'
@@ -579,7 +592,7 @@ my_part.setattr('manf#', 'ATTINY4-TSHR'
 It's also possible to set the attributes during the part creation:
 
 ```py
-my_part = Part('some_lib', 'some_part', ref='U5', footprint='SMD:SOT23_6', manf='Atmel')
+my_part = Part('some_lib', 'some_part', ref='U5', footprint='Package_TO_SOT_SMD.pretty:SOT-23-6', manf='Atmel')
 ```
 
 Creating nets is also simple:
@@ -638,6 +651,33 @@ Pin ???/1/my_pin/TRISTATE
 ```
 
 
+## Finding SKiDL Objects
+
+Sometimes you may want to access a bus or net that's already been created.
+In such an instance, you can use the `get()` class method:
+
+```py
+n = Net.get('Fred')  # Find the existing Net object named 'Fred'.
+b = Bus.get('A')     # Find the existing Bus object named 'A'.
+```
+
+If a net or bus is found with the exact name that was given, then that SKiDL
+object is returned (no wild-card searches using regular expressions are allowed).
+If the search is unsuccessful, `None` is returned.
+
+There may be other times when you want to access a particular bus or net and,
+if it doesn't exist, then create it.
+The `fetch()` class method is used for this:
+
+```py
+n = Net.fetch('Fred')  # Find the existing Net object named 'Fred' or create it if not found.
+b = Bus.fetch('A',8)   # Find the existing Bus object named 'A' or create it if not found.
+```
+
+Note that with the `Bus.fetch()` method, you also have to provide the arguments to
+build the bus (such as its width) in case it doesn't exist.
+
+
 ## Copying SKiDL Objects
 
 Instead of creating a SKiDL object from scratch, sometimes it's easier to just
@@ -693,7 +733,7 @@ Pin U1/3/ICSPCLK/AN1/GP1/BIDIRECTIONAL
 ```
 
 (If you have a part in a BGA package with pins numbers like `C11`, then
-you'll have to enter the pin number as a quoted string like `'C11'`.)
+you'll have to enter the pin number as a quoted string like '`C11`'.)
 
 You can also get several pins at once in a list:
 
@@ -721,6 +761,14 @@ The reason for doing this is that most electronics designers are used to
 the bounds on a slice including both endpoints. Perhaps it is a mistake to
 do it this way. We'll see...)
 
+In addition to the bracket notation, you can also get a single pin using an attribute name
+that begins with a '`p`' followed by the pin number:
+
+```terminal
+>>> pic10.p2
+Pin U1/2/VSS/POWER-IN
+```
+
 Instead of pin numbers, sometimes it makes the design intent more clear to 
 access pins by their names.
 For example, it's more obvious that a voltage supply net is being
@@ -728,6 +776,13 @@ attached to the power pin of the processor when it's expressed like this:
 
 ```py
 pic10['VDD'] += supply_5V
+```
+
+Like pin numbers, pin names can also be used as attributes to access the pin:
+
+```terminal
+>>> pic10.VDD
+Pin U1/5/VDD/POWER-IN
 ```
 
 You can use multiple names or regular expressions to get more than one pin:
@@ -748,6 +803,23 @@ pin names:
 [Pin U1/1/ICSPDAT/AN0/GP0/BIDIRECTIONAL, Pin U1/3/ICSPCLK/AN1/GP1/BIDIRECTIONAL, Pin U1/4/T0CKI/FOSC4/GP2/BIDIRECTIONAL]
 ```
 
+Some parts have sequentially-numbered sets of pins like the address and data buses of a RAM.
+SKiDL lets you access these pins using a slice-like notation in a string like so:
+
+```terminal
+>>> ram = Part('memory', 'sram_512ko')
+>>> ram['D[0:7]']
+[Pin U1/13/D0/TRISTATE, Pin U1/14/D1/TRISTATE, Pin U1/15/D2/TRISTATE, Pin U1/17/D3/TRISTATE, Pin U1/18/D4/TRISTATE, Pin U1/19/D5/TRISTATE, Pin U1/20/D6/TRISTATE, Pin U1/21/D7/TRISTATE]
+```
+
+Or you can access the pins in the reverse order:
+
+```terminal
+>>> ram = Part('memory', 'sram_512ko')
+>>> ram['D[7:0]']
+[Pin U2/21/D7/TRISTATE, Pin U2/20/D6/TRISTATE, Pin U2/19/D5/TRISTATE, Pin U2/18/D4/TRISTATE, Pin U2/17/D3/TRISTATE, Pin U2/15/D2/TRISTATE, Pin U2/14/D1/TRISTATE, Pin U2/13/D0/TRISTATE]
+```
+
 `Part` objects also provide the `get_pins()` function which can select pins in even more ways.
 For example, this would get every bidirectional pin of the processor:
 
@@ -755,8 +827,6 @@ For example, this would get every bidirectional pin of the processor:
 >>> pic10.get_pins(func=Pin.BIDIR)
 [Pin U1/1/ICSPDAT/AN0/GP0/BIDIRECTIONAL, Pin U1/3/ICSPCLK/AN1/GP1/BIDIRECTIONAL, Pin U1/4/T0CKI/FOSC4/GP2/BIDIRECTIONAL]
 ```
-
-However, slice notation doesn't work with pin names. You'll get an error if you try that.
 
 Accessing the individual nets of a bus works similarly to accessing part pins:
 
@@ -792,7 +862,7 @@ NET_A:
 Pins, nets, parts and buses can all be connected together in various ways, but
 the primary rule of SKiDL connections is:
 
-    **The `+=` operator is the only way to make connections!**
+> > **The `+=` operator is the only way to make connections!**
 
 At times you'll mistakenly try to make connections using the 
 assignment operator (`=`). In many cases, SKiDL warns you if you do that,
@@ -808,27 +878,33 @@ purpose is creating netlists. To that end, it handles four basic, connection ope
     A pin is connected to a net, adding it to the list of pins
     connected to that net. If the pin is already attached to other nets,
     then those nets are connected to this net as well.
+
 **Net-to-Pin**: 
     This is the same as doing a pin-to-net connection.
+
 **Pin-to-Pin**:
     A net is created and both pins are attached to it. If one or
     both pins are already connected to other nets, then those nets are connected
     to the newly-created net as well.
+
 **Net-to-Net**:
     Connecting one net to another *merges* the pins on both nets
     onto a single, larger net.
 
-There are three variants of each connection operation:
+For each type of connection operation, there are three variants based on
+the number of things being connected:
 
 **One-to-One**:
     This is the most frequent type of connection, for example, connecting one
     pin to another or connecting a pin to a net.
+
 **One-to-Many**:
     This mainly occurs when multiple pins are connected to the same net, like
     when multiple ground pins of a chip are connected to the circuit ground net.
+
 **Many-to-Many**:
     This usually involves bus connections to a part, such as connecting
-    a bus to the data or address pins of a processor. But there must be the
+    a bus to the data or address pins of a processor. For this variant, there must be the
     same number of things to connect in each set, e.g. you can't connect
     three pins to four nets.
 
@@ -854,8 +930,8 @@ IO_NET: Pin U1/1/ICSPDAT/AN0/GP0/BIDIRECTIONAL
 ```
 
 You can also connect a pin directly to another pin.
-In this case, an *implicit net* will be created between the pins that can be
-accessed using the `net` attribute of either part pin:
+In this case, an *implicit net* will be created between the pins that you can
+access using the `net` attribute of either part pin:
 
 ```terminal
 >>> pic10['.*GP1'] += pic10['.*GP2']  # Connect two pins together.
@@ -933,6 +1009,145 @@ Exception
 ```
 
 
+## Making Parallel and Serial Networks
+
+The previous section showed some general-purpose techniques for connecting parts,
+but SKiDL also has some specialized syntax for wiring two-pin components
+in parallel or serial.
+For example, here is a network of four resistors connected in series
+between power and ground:
+
+```terminal
+vcc, gnd = Net('VCC'), Net('GND')
+r1, r2, r3, r4 = Part('device', 'R', dest=TEMPLATE) * 4
+ser_ntwk = vcc & r1 & r2 & r3 & r4 & gnd
+```
+
+It's also possible to connect the resistors in parallel between power and ground:
+
+```terminal
+par_ntwk = vcc & (r1 | r2 | r3 | r4) & gnd
+```
+
+Or you can do something like placing pairs of resistors in series and then paralleling
+those combinations like this:
+
+```terminal
+combo_ntwk = vcc & ((r1 & r2) | (r3 & r4)) & gnd
+```
+
+The examples above work with *non-polarized* components, but what about parts
+like diodes? In that case, you have to specify the pins *explicitly* with the
+first pin connected to the preceding part and the second pin to the following part:
+
+```terminal
+d1 = Part('device', 'D')
+polar_ntwk = vcc & r1 & d1['A,K'] & gnd  # Diode anode connected to resistor and cathode to ground.
+```
+
+Explicitly listing the pins also lets you use multi-pin parts with networks.
+For example, here's an NPN-transistor amplifier:
+
+```terminal
+q1 = Part('device', 'Q_NPN_ECB')
+ntwk_ce = vcc & r1 & q1['C,E'] & gnd  # VCC through load resistor to collector and emitter attached to ground.
+ntwk_b = r2 & q1['B']  # Resistor attached to base.
+```
+
+That's all well and good, but how do you connect to internal points in these networks where
+the interesting things are happening?
+For instance, how do you apply an input to the transistor circuit and then connect
+to the output?
+One way is by inserting nets inside the networks:
+
+```terminal
+inp, outp = Net('INPUT'), Net('OUTPUT')
+ntwk_ce = vcc & r1 & outp & q1['C,E'] & gnd  # Connect net outp to the junction of the resistor and transistor collector.
+ntwk_b = inp & r2 & q1['B']  # Connect net inp to the resistor driving the transistor base.
+```
+
+After that's done, the `inp` and `outp` nets can be connected to other points in the circuit.
+
+
+## Units Within Parts
+
+Some components may contain smaller *units* that operate independently of the
+component as a whole.
+For example, an operational amplifier chip might contain two individual opamp units,
+each capable of operating on their own set of inputs and outputs.
+
+Some library parts may already have predefined units, but you can add them to
+any part.
+For example, a four-pin *resistor network* might contain two resistors:
+one attached between pins 1 and 4, and the other bewtween pins 2 and 3.
+Each resistor could be assigned to a unit as follows:
+
+```terminal
+>>> rn = Part('device', 'R_Pack02')
+>>> rn.make_unit('A', 1, 4)  # Make a unit called 'A' for the first resistor.
+
+ R_Pack02 (): 2 Resistor network, parallel topology, DIP package
+    Pin RN1/4/R1.2/PASSIVE
+    Pin RN1/1/R1.1/PASSIVE
+>>> rn.make_unit('B', 2, 3)  # Now make a unit called 'B' for the second resistor.
+
+ R_Pack02 (): 2 Resistor network, parallel topology, DIP package
+    Pin RN1/2/R2.1/PASSIVE
+    Pin RN1/3/R2.2/PASSIVE
+>>> rn.unit['A'][1, 4] += Net(), Net()
+```
+
+Once the units are defined, you can use them just like any part:
+
+```terminal
+>>> rn.unit['A'][1,4] += Net(), Net()  # Connect resistor A to two nets.
+>>> rn.unit['B'][2,3] += rn.unit['A'][1,4]  # Connect resistor B in parallel with resistor A.
+```
+
+Now this isn't all that useful because you still have to remember which pins
+are assigned to each unit, and if you wanted to swap the resistors you would have
+to change the unit names *and the pins numbers!*.
+In order to get around this inconvenience, you could assign *aliases* to each
+pin like this:
+
+```terminal
+>>> rn = Part('device', 'R_Pack02')
+>>> rn.make_unit('A', 1, 4)
+
+ R_Pack02 (): 2 Resistor network, parallel topology, DIP package
+    Pin RN1/4/R1.2/PASSIVE
+    Pin RN1/1/R1.1/PASSIVE
+>>> rn.make_unit('B', 2, 3)
+
+ R_Pack02 (): 2 Resistor network, parallel topology, DIP package
+    Pin RN1/3/R2.2/PASSIVE
+    Pin RN1/2/R2.1/PASSIVE
+>>> rn.unit['A'].set_pin_alias('L',1) # Alias 'L' of pin 1 on left-side of package.
+>>> rn.unit['A'].set_pin_alias('R',4) # Alias 'R' of pin 4 on right-side of package.
+>>> rn.unit['B'].set_pin_alias('L',2) # Alias 'L' of pin 2 on left-side.
+>>> rn.unit['B'].set_pin_alias('R',3) # Alias 'R' of pin 3 on right-side.
+```
+
+Now the same connections can be made using the pin aliases:
+
+```terminal
+>>> rn.unit['A']['L,R'] += Net(), Net()  # Connect resistor A to two nets.
+>>> rn.unit['B']['L,R'] += rn.unit['A']['L,R']  # Connect resistor B in parallel with resistor A.
+```
+
+In this case, if you wanted to swap the A and B resistors, you only need to change
+their unit labels.
+The pin aliases don't need to be altered.
+
+If you find the `unit[...]` notation cumbersome, units can also be accessed by
+using their names as attributes:
+
+```terminal
+>>> rn.A['L,R'] += Net(), Net()  # Connect resistor A to two nets.
+>>> rn.B['L,R'] += rn.A['L,R']   # Connect resistor B in parallel with resistor A.
+```
+
+
 ## Hierarchy
 
 SKiDL supports the encapsulation of parts, nets and buses into modules
@@ -952,8 +1167,8 @@ import sys
 @subcircuit
 def vdiv(inp, outp):
     """Divide inp voltage by 3 and place it on outp net."""
-    rup = Part('device', 'R', value='1K', footprint='Resistors_SMD:R_0805')
-    rlo = Part('device','R', value='500', footprint='Resistors_SMD:R_0805')
+    rup = Part('device', 'R', value='1K', footprint='Resistor_SMD.pretty:R_0805_2012Metric')
+    rlo = Part('device','R', value='500', footprint='Resistor_SMD.pretty:R_0805_2012Metric')
     rup[1,2] += inp, outp
     rlo[1,2] += outp, gnd
 
@@ -984,14 +1199,14 @@ Here's the netlist that's generated:
   (components
     (comp (ref R1)
       (value 1K)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R2)
       (value 500)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
@@ -1019,8 +1234,8 @@ import sys
 @subcircuit
 def vdiv(inp, outp):
     """Divide inp voltage by 3 and place it on outp net."""
-    rup = Part('device', 'R', value='1K', footprint='Resistors_SMD:R_0805')
-    rlo = Part('device','R', value='500', footprint='Resistors_SMD:R_0805')
+    rup = Part('device', 'R', value='1K', footprint='Resistor_SMD.pretty:R_0805_2012Metric')
+    rlo = Part('device','R', value='500', footprint='Resistor_SMD.pretty:R_0805_2012Metric')
     rup[1,2] += inp, outp
     rlo[1,2] += outp, gnd
 
@@ -1044,7 +1259,7 @@ generate_netlist(sys.stdout)
 (For the EE's out there: *yes, I know cascading three simple voltage dividers
 will not multiplicatively scale the input voltage because of the
 input and output impedances of each stage!*
-It's just the simplest example I could think of that shows the feature.)
+It's just the simplest example I could use to show hierarchy.)
 
 And here's the resulting netlist:
 
@@ -1057,42 +1272,42 @@ And here's the resulting netlist:
   (components
     (comp (ref R1)
       (value 1K)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R2)
       (value 500)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R3)
       (value 1K)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R4)
       (value 500)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R5)
       (value 1K)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
       (libsource (lib device) (part R)))
     (comp (ref R6)
       (value 500)
-      (footprint Resistors_SMD:R_0805)
+      (footprint Resistor_SMD.pretty:R_0805_2012Metric)
       (fields
         (field (name keywords) "r res resistor")
         (field (name description) Resistor))
@@ -1122,7 +1337,7 @@ And here's the resulting netlist:
 ## Libraries
 
 As you've already seen, SKiDL gets its parts from *part libraries*.
-By default, SKiDL finds the libraries provided by KiCad (using the `KISYSMOD`
+By default, SKiDL finds the libraries provided by KiCad (using the `KICAD_SYMBOL_DIR`
 environment variable), so if that's all you need then you're all set.
 
 Currently, SKiDL supports the library formats for the following ECAD tools:
@@ -1133,11 +1348,11 @@ Currently, SKiDL supports the library formats for the following ECAD tools:
 You can set the default library format you want to use in your SKiDL script like so:
 
 ```py
-DEFAULT_TOOL = KICAD  # KiCad is the default library format.
-DEFAULT_TOOL = SKIDL  # Now SKiDL is the default library format.
+set_default_tool(KICAD)  # KiCad is the default library format.
+set_default_tool(SKIDL)  # Now SKiDL is the default library format.
 ```
 
-You can also set the directories where SKiDL looks for parts using the 
+You can select the directories where SKiDL looks for parts using the 
 `lib_search_paths` dictionary:
 
 ```py
@@ -1145,7 +1360,7 @@ lib_search_paths[SKIDL] = ['.', '..', 'C:\\temp']
 lib_search_paths[KICAD].append('C:\\my\\kicad\\libs')
 ```
 
-You can also convert a KiCad library into the SKiDL format by exporting it:
+You can convert a KiCad library into the SKiDL format by exporting it:
 
 ```py
 kicad_lib = SchLib('device', tool=KICAD)       # Open a KiCad library.
@@ -1158,7 +1373,7 @@ else:
 diode = Part(skidl_lib, 'D')                   # Instantiate a diode from the SKiDL library.
 ```
 
-You can also make ad-hoc libraries just by creating a SchLib object and adding
+You can make ad-hoc libraries just by creating a SchLib object and adding
 Part objects to it:
 
 ```py
@@ -1180,12 +1395,12 @@ add it to the circuit netlist.
 Then set the part attributes and create and add pins to the part.
 Here are the most common attributes you'll want to set:
 
-Attribute | Meaning
-----------|------------------
-name      | A string containing the name of the part, e.g. 'LM35' for a temperature sensor.
-ref_prefix | A string containing the prefix for this part's references, e.g. 'U' for ICs.
+Attribute   | Meaning
+------------|------------------
+name        | A string containing the name of the part, e.g. 'LM35' for a temperature sensor.
+ref_prefix  | A string containing the prefix for this part's references, e.g. 'U' for ICs.
 description | A string describing the part, e.g. 'temperature sensor'.
-keywords  | A string containing keywords about the part, e.g. 'sensor temperature IC'.
+keywords    | A string containing keywords about the part, e.g. 'sensor temperature IC'.
 
 When creating a pin, these are the attributes you'll want to set:
 
@@ -1197,18 +1412,18 @@ func      | An identifier for the function of the pin.
 
 The pin function identifiers are as follows:
  
-Identifier | Pin Function
------------|-----------------
-Pin.INPUT | Input pin.
-Pin.OUTPUT | Output pin.
-Pin.BIDIR | Bidirectional in/out pin.
-Pin.TRISTATE | Output pin that goes into a high-impedance state when disabled.
-Pin.PASSIVE | Pin on a passive component (like a resistor).
-Pin.UNSPEC | Pin with an unspecified function.
-Pin.PWRIN | Power input pin (either voltage supply or ground).
-Pin.PWROUT | Power output pin (like the output of a voltage regulator).
-Pin.OPENCOLL | Open-collector pin (pulls to ground but not to positive rail).
-Pin.OPENEMIT | Open-emitter pin (pulls to positive rail but not to ground).
+Identifier    | Pin Function
+--------------|-----------------
+Pin.INPUT     | Input pin.
+Pin.OUTPUT    | Output pin.
+Pin.BIDIR     | Bidirectional in/out pin.
+Pin.TRISTATE  | Output pin that goes into a high-impedance state when disabled.
+Pin.PASSIVE   | Pin on a passive component (like a resistor).
+Pin.UNSPEC    | Pin with an unspecified function.
+Pin.PWRIN     | Power input pin (either voltage supply or ground).
+Pin.PWROUT    | Power output pin (like the output of a voltage regulator).
+Pin.OPENCOLL  | Open-collector pin (pulls to ground but not to positive rail).
+Pin.OPENEMIT  | Open-emitter pin (pulls to positive rail but not to ground).
 Pin.NOCONNECT | A pin that should be left unconnected.
 
 SKiDL will also create a library of all the parts used in your design whenever
@@ -1275,7 +1490,7 @@ The `NC` net is the only net for which this happens.
 For all other nets, connecting two or more nets to the same pin
 merges those nets and all the pins on them together.
 
-### Net Drive Level
+### Net and Pin Drive Levels
 
 Certain parts have power pins that are required to be driven by
 a power supply net or else ERC warnings ensue.
@@ -1315,14 +1530,83 @@ This issue is fixed by changing the `drive` attribute of the net:
 
 You can set the `drive` attribute at any time to any defined level, but `POWER`
 is probably the only setting you'll use.
-Also, the `drive` attribute retains the highest of all the levels it has been set at,
-so once it is set to the POWER level it is impossible to set it to a lower level.
-(This is done during internal processing to keep a net at the highest drive 
-level of any of the pins that have been attached to it.)
-
-In short, for any net you create that supplies power to devices in your circuit,
+For any net you create that supplies power to devices in your circuit,
 you should probably set its `drive` attribute to `POWER`.
 This is equivalent to attaching power flags to nets in some ECAD packages like KiCad.
+
+You can also set the `drive` attribute of part pins to override their default drive level.
+This is sometimes useful when you are using an output pin of a part to power
+another part.
+
+```terminal
+>>> pic10_a = Part('microchip_pic10mcu','pic10f220-I/OT')
+>>> pic10_b = Part('microchip_pic10mcu','pic10f220-I/OT')
+>>> pic10_b['VDD'] += pic10_a[1]  # Power pic10_b from output pin of pic10_a.
+>>> ERC()
+ERC WARNING: Insufficient drive current on net N$1 for pin POWER-IN pin 5/VDD of PIC10F220-I/OT/U2
+... <additional unconnected pin warnings> ...
+
+>>> pic10_a[1].drive = POWER  # Change drive level of pic10_a output pin.
+>>> ERC()
+... <unconnected pin warnings, but insufficient drive warning is gone> ...
+```
+
+### Pin, Net, Bus Equivalencies
+
+Pins, nets, and buses can all be connected to one another in a number of ways.
+In order to make them as interchangeable as possible, some additional functions
+are defined for each object:
+
+**`__bool__` and `__nonzero__`**:
+    Each object will return `True` when used in a boolean operation.
+    This can be useful when trying to select an active connection from a set of
+    candidates using the `or` operator:
+
+```terminal
+>>> a = Net('A')
+>>> b = Bus('B', 8)
+>>> c = Pin()
+>>> d = a or b or c
+>>> d
+A:
+>>> type(d)
+<class 'skidl.Net.Net'>
+```
+
+**Indexing**:
+    Normally, indices can only be used with a Bus object to select one or more bus lines.
+    But `Pin` and `Net` objects can also be indexed as long as the index evaluates to zero:
+
+```terminal
+>>> a = Net('A')
+>>> c = Pin()
+>>> a[0] += c[0]
+WARNING: Attaching non-part Pin  to a Net A.
+>>> a[0] += c[1]
+ERROR: Can't use a non-zero index for a pin.
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "C:\xesscorp\KiCad\tools\skidl\skidl\Pin.py", line 251, in __getitem__
+    raise Exception
+Exception
+```
+
+**Width**:
+    `Bus`, `Net`, and `Pin` objects all support the `width` property.
+    For a `Bus` object, `width` returns the number of bus lines it contains.
+    For a `Net` or `Pin` object, `width` always returns 1.
+
+```terminal
+>>> a = Net('A')
+>>> b = Bus('B', 8)
+>>> c = Pin()
+>>> a.width
+1
+>>> b.width
+8
+>>> c.width
+1
+```
 
 ### Selectively Supressing ERC Messages
 
@@ -1414,10 +1698,11 @@ Naturally, the presence of multiple, independent circuits creates the possibilit
 new types of errors.
 Here are a few things you can't do (and will get warned about):
 
-* You can't connect parts, nets or buses in different Circuit objects.
+* You can't make connections between parts, nets or buses that reside in 
+  different Circuit objects.
 
-* Once a part, net, or bus has something connected to it, it can't be moved
-  to a different Circuit object.
+* Once a part, net, or bus is connected to something else in a Circuit object,
+  it can't be moved to a different Circuit object.
 
 
 # Converting Existing Designs to SKiDL
@@ -1437,3 +1722,9 @@ That's it! You can execute the `my_design.py` script and it will regenerate the
 netlist. Or you can use the script as a subcircuit in a larger design.
 Or do anything else that a SKiDL-based design supports.
 
+
+# SPICE Simulations
+
+Now you can describe a circuit using SKiDL and run a SPICE simulation on it!
+Go [here](https://github.com/xesscorp/skidl/blob/master/examples/spice-sim-intro/spice-sim-intro.ipynb)
+to get the complete details.

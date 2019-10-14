@@ -3,6 +3,133 @@
 History
 -------
 
+0.0.27 (2019-XX-XX)
+______________________
+
+* Prevent changing the name of net 0 when generating a SPICE netlist.
+* Fixed Pin, Net, Bus and Part iterators so they'll work in nested loops.
+* Part units are automatically added when a part is parsed.
+* Files are now opened for reading using latin_1 encoding to allow special symbols used by KiCad.
+* Part pins can now be aliased directly, e.g. `uc[5].alias = 'gp0'`.
+* Added class method get() to Part to allow finding a part based on name, reference, description.
+* Refactored ERC functions to allow user-extensibility.
+* Created a base object for Circuit, Part, Pin, Net, Bus and Interface objects.
+* Added an aliases property to the SKiDL base object so all its children could be aliased.
+* Updated to perform simulations with ngspice version 30.
+* Added a notes property to allow attachment of user notes to Parts, Pins, Nets, etc.
+* Added net class to net objects for specifying net-specific design rules in PCBNEW.
+* Ignore multiple pins with the same number in symbols with DeMorgan equivalents.
+* Fixed problem with non-ASCII chars (e.g. Ohms) in strings.
+* Sped-up part/net naming using heap/cache, binary search, sets.
+* Sped-up by storing net traversals to avoid recomputation.
+* Fixed processing of slices in things like sdram['A[0:15]'].
+* Sped-up part_search() by eliminating unnecessary part parsing.
+* Improved schematic generation with graphviz.
+* Search now allows AND/OR of parenthesized terms.
+* New GUI for searching for parts and footprints.
+* Footprint libraries to search are now selected from the global fp-lib-table file.
+* KiCad library component field values are now stored in a dict in Part indexed by the field name or F0, F1, F2... 
+* KiCad library component field values are also stored as Part attributes using the field name or F0, F1, F2...
+
+
+0.0.26 (2019-01-25)
+______________________
+
+* ``search`` command no longer looks in backup library because that leads to erroneous hits in all libraries.
+* Part objects will now iterate through their pins and len() will return the number of pins.
+* Updated netlist_to_skidl utility to account for new version of kinparse.
+
+
+0.0.25 (2018-12-30)
+______________________
+
+* Updated website.
+* KISYSMOD is no longer used to find part libraries, only KICAD_SYMBOL_DIR is used now.
+
+
+0.0.24 (2018-09-15)
+______________________
+
+* Fixed an error where creating a backup part library for a design would create extra pins attached to the nets.
+
+
+0.0.23 (2018-08-25)
+______________________
+
+* Added Network objects to make it easy to create serial & parallel combinations of two-pin parts.
+* SKiDL design hierarchy is now embedded in the KiCad netlist that's generated.
+
+
+0.0.22 (2018-05-XX)
+______________________
+
+* Added Interface objects for storing complicated sets of I/O signals for subsystems.
+* ERC no longer redundantly checks every segment of a multi-segment net and reports multiple errors.
+* copy() function of Part, Bus, Pin, Net objects now returns a scalar object while copy(1) returns a list with one object.
+* Bus, Pin, and Net objects now have iterators.
+* Corrected initialization of KiCad library search paths.
+
+
+0.0.21 (2018-04-30)
+______________________
+
+* Added pull() and fetch() methods for getting/creating existing/new Net and Bus objects.
+* Added drive property to pins to override their default pin function attribute.
+* Part pins and units can now be accessed as attributes.
+* Nets, pins, and buses now support the width property.
+* Indexing with brackets now works equivalently for pins, nets, and buses.
+* Grouped part pins (such as address and data buses) can now be accessed using a slice-like notation, e.g. memory['ADDR[0:7]'].
+
+
+0.0.20 (2018-03-08)
+______________________
+
+* Matching of pin lists now begins with normal string matching before using regexes.
+* Added more tests and fixed existing tests.
+
+
+0.0.19 (2018-02-20)
+______________________
+
+* Selecting part pins now looks for exact match before falling back to regex matching.
+* PySpice now needs to be manually installed to perform SPICE simulations.
+* SPICE simulations of subcircuits (.SUBCKT) now supported.
+* Improvements/additions to the library of supported SPICE parts.
+
+
+0.0.18 (2018-02-07)
+______________________
+
+* SPICE simulations of circuits now supported (Python 3 only).
+
+
+0.0.17 (2018-01-23)
+______________________
+
+* Modularized code into separate files.
+
+
+0.0.16 (2018-01-16)
+______________________
+
+* Parsing of KiCad EESchema libraries made more robust.
+* DEFAULT_TOOL replaced with set_default_tool() function.
+* Some code simplification by using a context manager for opening files.
+
+
+0.0.15 (2018-01-09)
+______________________
+
+* Testing made more robust.
+
+
+0.0.14 (2018-01-05)
+______________________
+
+* KiCad netlists are now parsed using the external package kinparse.
+* Cleaned-up pylint-identified issues.
+* Removed absolute file paths to libraries from tests.
+
 
 0.0.13 (2017-08-20)
 ______________________

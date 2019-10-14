@@ -1,25 +1,25 @@
-# Config file for automatic testing at travis-ci.org
-
+dist: xenial
 language: python
-
-python:
-  - "3.6"
-  - "3.5"
-  - "3.4"
-  - "2.7"
-  - "pypy"
-
-# command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install:
-    - pip install -r requirements.txt
-    - pip install flake8
-
-before_script:
-    flake8 . --count --ignore=E402 --max-line-length=127 --statistics --exit-zero
-
-# command to run tests, e.g. python setup.py test
-script: python setup.py test
-
-notifications:
-    on_success: change
-    on_failure: always
+matrix:
+  include:
+    - python: 2.7
+      name: "Test Python 2.7"
+      env: TOXENV=py27
+      install: pip install tox
+      script: tox
+    - python: 3.6
+      name: "Test Python 3.6"
+      env: TOXENV=py36
+      install: pip install tox
+      script: tox
+    - python: 3.7
+      name: "Test Python 3.7"
+      env: TOXENV=py37
+      install: pip install tox
+      script: tox
+    - python: 3.6
+      name: "Check formatting"
+      install: pip install black isort
+      script:
+        - black --check --diff skidl tests setup.py
+        - isort --check --diff --recursive tests skidl setup.py
